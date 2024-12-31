@@ -94,12 +94,16 @@ void ESolver_SDFT_PW<T, Device>::before_all_runners(UnitCell& ucell, const Input
 template <typename T, typename Device>
 void ESolver_SDFT_PW<T, Device>::before_scf(UnitCell& ucell, const int istep)
 {
+    ModuleBase::TITLE("ESolver_SDFT_PW", "before_scf");
+    ModuleBase::timer::tick("ESolver_SDFT_PW", "before_scf");
+
     ESolver_KS_PW<T, Device>::before_scf(ucell, istep);
     delete reinterpret_cast<hamilt::HamiltPW<double>*>(this->p_hamilt);
     this->p_hamilt = new hamilt::HamiltSdftPW<T, Device>(this->pelec->pot,
                                                          this->pw_wfc,
                                                          &this->kv,
                                                          &this->ppcell,
+                                                         &ucell, 
                                                          PARAM.globalv.npol,
                                                          &this->stoche.emin_sto,
                                                          &this->stoche.emax_sto);
@@ -109,6 +113,8 @@ void ESolver_SDFT_PW<T, Device>::before_scf(UnitCell& ucell, const int istep)
     {
         this->stowf.update_sto_orbitals(PARAM.inp.seed_sto);
     }
+
+    ModuleBase::timer::tick("ESolver_SDFT_PW", "before_scf");
 }
 
 template <typename T, typename Device>
@@ -121,8 +127,13 @@ void ESolver_SDFT_PW<T, Device>::iter_finish(UnitCell& ucell, const int istep, i
 template <typename T, typename Device>
 void ESolver_SDFT_PW<T, Device>::after_scf(UnitCell& ucell, const int istep)
 {
+    ModuleBase::TITLE("ESolver_SDFT_PW", "after_scf");
+    ModuleBase::timer::tick("ESolver_SDFT_PW", "after_scf");
+
     // 1) call after_scf() of ESolver_KS_PW
     ESolver_KS_PW<T, Device>::after_scf(ucell, istep);
+
+    ModuleBase::timer::tick("ESolver_SDFT_PW", "after_scf");
 }
 
 template <typename T, typename Device>
@@ -166,7 +177,8 @@ void ESolver_SDFT_PW<T, Device>::hamilt2density_single(UnitCell& ucell, int iste
                                                            hsolver::DiagoIterAssist<T, Device>::PW_DIAG_THR,
                                                            hsolver::DiagoIterAssist<T, Device>::need_subspace);
 
-    hsolver_pw_sdft_obj.solve(this->p_hamilt,
+    hsolver_pw_sdft_obj.solve(ucell,
+                              this->p_hamilt,
                               this->kspw_psi[0],
                               this->psi[0],
                               this->pelec,
@@ -186,7 +198,7 @@ void ESolver_SDFT_PW<T, Device>::hamilt2density_single(UnitCell& ucell, int iste
         {
             srho.begin(is, *(this->pelec->charge), this->pw_rho, ucell.symm);
         }
-        this->pelec->f_en.deband = this->pelec->cal_delta_eband();
+        this->pelec->f_en.deband = this->pelec->cal_delta_eband(ucell);
     }
     else
     {
@@ -221,6 +233,7 @@ void ESolver_SDFT_PW<T, Device>::cal_force(UnitCell& ucell, ModuleBase::matrix& 
                     &this->sf,
                     &this->kv,
                     this->pw_wfc,
+                    this->locpp,
                     this->ppcell,
                     ucell,
                     *this->kspw_psi,
@@ -241,6 +254,7 @@ void ESolver_SDFT_PW<T, Device>::cal_stress(UnitCell& ucell, ModuleBase::matrix&
                   *this->kspw_psi,
                   this->stowf,
                   this->pelec->charge,
+                  &this->locpp,
                   &this->ppcell,
                   ucell);
 }

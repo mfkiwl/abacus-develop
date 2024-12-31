@@ -97,7 +97,7 @@ class DiagoBPCGPrepare
         double *en = new double[npw];
         int ik = 1;
 	    hamilt::Hamilt<std::complex<double>>* ha;
-	    ha =new hamilt::HamiltPW<std::complex<double>>(nullptr, nullptr, nullptr, nullptr);
+	    ha =new hamilt::HamiltPW<std::complex<double>>(nullptr, nullptr, nullptr, nullptr,nullptr);
 	    int* ngk = new int [1];
 	    //psi::Psi<std::complex<double>> psi(ngk,ik,nband,npw);
 	    psi::Psi<std::complex<double>> psi;
@@ -152,10 +152,11 @@ class DiagoBPCGPrepare
                 hpsi_out, ld_psi);
         };
         bpcg.init_iter(nband, npw);
-        bpcg.diag(hpsi_func, psi_local.get_pointer(), en);
-        bpcg.diag(hpsi_func, psi_local.get_pointer(), en);
-        bpcg.diag(hpsi_func, psi_local.get_pointer(), en);
-        bpcg.diag(hpsi_func, psi_local.get_pointer(), en);
+        std::vector<double> ethr_band(nband, 1e-5);
+        bpcg.diag(hpsi_func, psi_local.get_pointer(), en, ethr_band);
+        bpcg.diag(hpsi_func, psi_local.get_pointer(), en, ethr_band);
+        bpcg.diag(hpsi_func, psi_local.get_pointer(), en, ethr_band);
+        bpcg.diag(hpsi_func, psi_local.get_pointer(), en, ethr_band);
         end = MPI_Wtime();
         //if(mypnum == 0) printf("diago time:%7.3f\n",end-start);
         delete [] DIAGOTEST::npw_local;

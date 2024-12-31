@@ -23,7 +23,6 @@ ESolver_OF::ESolver_OF()
 {
     this->classname = "ESolver_OF";
     this->task_ = new char[60];
-    this->p_locpp = &this->locpp;
 }
 
 ESolver_OF::~ESolver_OF()
@@ -100,7 +99,7 @@ void ESolver_OF::before_all_runners(UnitCell& ucell, const Input_para& inp)
 
     // initialize the real-space uniform grid for FFT and parallel
     // distribution of plane waves
-    GlobalC::Pgrid.init(pw_rho->nx,
+    Pgrid.init(pw_rho->nx,
                         pw_rho->ny,
                         pw_rho->nz,
                         pw_rho->nplane,
@@ -108,11 +107,11 @@ void ESolver_OF::before_all_runners(UnitCell& ucell, const Input_para& inp)
                         pw_big->nbz,
                         pw_big->bz); // mohan add 2010-07-22, update 2011-05-04
     // Calculate Structure factor
-    sf.setup_structure_factor(&ucell, pw_rho);
+    sf.setup_structure_factor(&ucell, Pgrid, pw_rho);
     ModuleBase::GlobalFunc::DONE(GlobalV::ofs_running, "INIT BASIS");
 
     // initialize local pseudopotential
-    this->locpp.init_vloc(pw_rho);
+    this->locpp.init_vloc(ucell,pw_rho);
     ModuleBase::GlobalFunc::DONE(GlobalV::ofs_running, "LOCAL POTENTIAL");
 
 
@@ -120,7 +119,7 @@ void ESolver_OF::before_all_runners(UnitCell& ucell, const Input_para& inp)
     this->init_elecstate(ucell);
 
     // calculate the total local pseudopotential in real space
-    this->pelec->init_scf(0, sf.strucFac, locpp.numeric, ucell.symm); // atomic_rho, v_of_rho, set_vrs
+    this->pelec->init_scf(0, ucell, Pgrid, sf.strucFac, locpp.numeric, ucell.symm); // atomic_rho, v_of_rho, set_vrs
 
     // liuyu move here 2023-10-09
     // D in uspp need vloc, thus behind init_scf()
@@ -200,6 +199,9 @@ void ESolver_OF::runner(UnitCell& ucell, const int istep)
  */
 void ESolver_OF::before_opt(const int istep, UnitCell& ucell)
 {
+    ModuleBase::TITLE("ESolver_OF", "before_opt");
+    ModuleBase::timer::tick("ESolver_OF", "before_opt");
+
     //! 1) call before_scf() of ESolver_FP
     ESolver_FP::before_scf(ucell, istep);
 
@@ -244,18 +246,10 @@ void ESolver_OF::before_opt(const int istep, UnitCell& ucell)
     if (ucell.ionic_position_updated)
     {
         CE.update_all_dis(ucell);
-        CE.extrapolate_charge(
-#ifdef __MPI
-            &(GlobalC::Pgrid),
-#endif
-            ucell,
-            pelec->charge,
-            &(sf),
-            GlobalV::ofs_running,
-            GlobalV::ofs_warning);
+        CE.extrapolate_charge(&Pgrid, ucell, pelec->charge, &sf, GlobalV::ofs_running, GlobalV::ofs_warning);
     }
 
-    this->pelec->init_scf(istep, sf.strucFac, locpp.numeric, ucell.symm);
+    this->pelec->init_scf(istep, ucell, Pgrid, sf.strucFac, locpp.numeric, ucell.symm);
 
     // calculate ewald energy
     this->pelec->f_en.ewald_energy = H_Ewald_pw::compute_ewald(ucell, this->pw_rho, sf.strucFac);
@@ -299,6 +293,8 @@ void ESolver_OF::before_opt(const int istep, UnitCell& ucell)
     {
         this->theta_[0] = 0.2;
     }
+
+    ModuleBase::timer::tick("ESolver_OF", "before_opt");
 }
 
 /**
@@ -411,7 +407,7 @@ void ESolver_OF::update_rho()
     //     Symmetry_rho srho;
     //     for (int is = 0; is < PARAM.inp.nspin; is++)
     //     {
-    //         srho.begin(is, *(pelec->charge), this->pw_rho, GlobalC::Pgrid, ucell.symm);
+    //         srho.begin(is, *(pelec->charge), this->pw_rho, Pgrid, ucell.symm);
     //         for (int ibs = 0; ibs < this->pw_rho->nrxx; ++ibs)
     //         {
     //             this->pphi_[is][ibs] = sqrt(pelec->charge->rho[is][ibs]);
@@ -483,6 +479,9 @@ bool ESolver_OF::check_exit()
  */
 void ESolver_OF::after_opt(const int istep, UnitCell& ucell)
 {
+    ModuleBase::TITLE("ESolver_OF", "after_opt");
+    ModuleBase::timer::tick("ESolver_OF", "after_opt");
+
     // 1) calculate the kinetic energy density
     if (PARAM.inp.out_elf[0] > 0)
     {
@@ -491,6 +490,8 @@ void ESolver_OF::after_opt(const int istep, UnitCell& ucell)
 
     // 2) call after_scf() of ESolver_FP
     ESolver_FP::after_scf(ucell, istep);
+
+    ModuleBase::timer::tick("ESolver_OF", "after_opt");
 }
 
 /**
@@ -538,7 +539,7 @@ double ESolver_OF::cal_energy()
 void ESolver_OF::cal_force(UnitCell& ucell, ModuleBase::matrix& force)
 {
     Forces<double> ff(ucell.nat);
-    ff.cal_force(force, *pelec, this->pw_rho, &ucell.symm, &sf, &this->locpp);
+    ff.cal_force(ucell, force, *pelec, this->pw_rho, &ucell.symm, &sf, this->solvent, &this->locpp);
 }
 
 /**
