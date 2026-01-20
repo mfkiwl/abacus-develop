@@ -91,11 +91,11 @@ check_out(){
     properties=`awk '{print $1}' $outfile`
 
     #------------------------------------------------------
-    # jd = job description
+    # README 
     #------------------------------------------------------
-    if test -e "jd"; then
-        jd=`cat jd`
-         echo "[----------] $jd"
+    if test -e "README"; then
+        readme=`cat README`
+         echo "[----------] $readme"
     fi
 
     #------------------------------------------------------
@@ -113,12 +113,12 @@ check_out(){
         #--------------------------------------------------
         # calculated value
         #--------------------------------------------------
-        cal=`grep "$key" result.out | awk '{printf "%.'$ca'f\n",$2}'`
+        cal=`grep -w "$key" result.out | awk '{printf "%.'$ca'f\n",$2}'`
 
         #--------------------------------------------------
         # reference value
         #--------------------------------------------------
-        ref=`grep "$key" result.ref | awk '{printf "%.'$ca'f\n",$2}'`
+        ref=`grep -w "$key" result.ref | awk '{printf "%.'$ca'f\n",$2}'`
 
         #--------------------------------------------------
         # computed the deviation between the calculated
@@ -176,9 +176,10 @@ check_out(){
     if [ $ifail -eq 1 ]; then
         let failed++
         failed_case_list+=$dir'\n'
-        calculation=`grep calculation INPUT | awk '{print $2}' | sed s/[[:space:]]//g`
-        running_path=`echo "OUT.autotest/running_$calculation"".log"`
-        cat $running_path
+        calculation=`grep calculation INPUT | grep -v '^#' | awk '{print $2}' | sed s/[[:space:]]//g`
+        # mohan comment out 2025-04-22, we don't need to print so many details on the screen
+        #running_path=`echo "OUT.autotest/running_$calculation"".log"`
+        #cat $running_path
         case_status+=$dir' 0\n'
     else
         case_status+=$dir' 1\n'
@@ -250,7 +251,7 @@ for dir in $testdir; do
     TIMEFORMAT='[----------] Time elapsed: %R seconds'
     #parallel test
     time {
-        if [ "$case" = "282_NO_RPA" -o "$dir" = "102_PW_BPCG" ]; then
+        if [ "$case" = "282_NO_RPA" ]; then
             mpirun -np 1 $abacus > log.txt
         else
             mpirun -np $np $abacus > log.txt

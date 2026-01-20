@@ -10,37 +10,47 @@ project(
   HOMEPAGE_URL "https://github.com/deepmodeling/abacus-develop"
   LANGUAGES CXX)
 
-option(ENABLE_LCAO "Enable LCAO calculation." ON)
-option(ENABLE_DEEPKS "Enable DeePKS functionality" OFF)
-option(ENABLE_LIBXC "Enable LibXC functionality" OFF)
-option(USE_CUDA "Enable support to CUDA for ABACUS." OFF)
-option(ENABLE_FLOAT_FFTW "Enable support to single precision FFTW library." OFF)
-option(USE_ROCM "Enable support to ROCm." OFF)
-option(USE_OPENMP "Enable OpenMP in ABACUS." ON)
+option(ENABLE_MPI "Enable MPI" ON)
+option(USE_OPENMP "Enable OpenMP" ON)
+option(USE_CUDA "Enable CUDA" OFF)
+option(USE_CUDA_MPI "Enable CUDA-aware MPI" OFF)
+option(USE_CUDA_ON_DCU "Enable CUDA on DCU" OFF)
+option(USE_ROCM "Enable ROCm" OFF)
+option(USE_DSP "Enable DSP" OFF)
+option(USE_SW "Enable SW Architecture" OFF)
+
+option(USE_ABACUS_LIBM "Build libmath from source to speed up" OFF)
+option(ENABLE_LIBXC "Enable using the LibXC package" OFF)
+option(ENABLE_FLOAT_FFTW "Enable using single-precision FFTW library." OFF)
+
+# option(ENABLE_DEEPKS "Enable the DeePKS algorithm" OFF)
+# option(ENABLE_MLKEDF "Enable the Machine-Learning-based KEDF for OFDFT" OFF)
+
+option(ENABLE_MLALGO "Enable the machine learning algorithms" OFF)
+
+option(ENABLE_LCAO "Enable LCAO algorithm" ON)
+option(USE_ELPA "Enable ELPA for LCAO" ON)
+option(ENABLE_LIBRI "Enable LibRI for hybrid functional" OFF)
+option(ENABLE_LIBCOMM "Enable LibComm" OFF)
+option(ENABLE_PEXSI "Enable PEXSI for LCAO" OFF)
+
+option(BUILD_TESTING "Build unittests" OFF)
+option(DEBUG_INFO "Print message to debug" OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
-option(BUILD_TESTING "Build ABACUS unit tests" OFF)
-option(INFO "Enable gathering of math library information" OFF)
-option(ENABLE_COVERAGE "Enable coverage build." OFF)
-option(ENABLE_LIBRI "Enable EXX with LibRI." OFF)
-option(ENABLE_LIBCOMM "Enable communicate with LibComm." OFF)
-option(ENABLE_PAW "Enable PAW calculation" OFF)
-option(ENABLE_MPI "Enable compilation with or without MPI." ON)
-option(USE_ELPA "Enable ELPA" ON)
-option(USE_ABACUS_LIBM "Build libmath from source to speed up." OFF)
+option(INFO "Enable gathering math library information" OFF)
+option(ENABLE_COVERAGE "Enable coverage build" OFF)
 option(GIT_SUBMODULE "Check submodules during build" ON)
-option(DEBUG_INFO "Print message for developers to debug." OFF)
+
 # Do not enable it if generated code will run on different CPUs
 option(ENABLE_NATIVE_OPTIMIZATION
        "Enable compilation optimization for the native machine's CPU type" OFF)
+
 option(COMMIT_INFO "Print commit information in log" ON)
-option(ENABLE_FFT_TWO_CENTER "Enable FFT-based two-center integral method." ON)
-option(ENABLE_GOOGLEBENCH "Enable GOOGLE-benchmark usage." OFF)
-option(ENABLE_RAPIDJSON "Enable rapid-json usage." OFF)
-option(ENABLE_CNPY "Enable cnpy usage." OFF)
-option(ENABLE_PEXSI "Enable support for PEXSI." OFF)
-option(ENABLE_CUSOLVERMP "Enable cusolvermp." OFF)
-option(USE_DSP "Enable DSP usage." OFF)
-option(USE_CUDA_ON_DCU "Enable CUDA on DCU" OFF)
+option(ENABLE_FFT_TWO_CENTER "Enable FFT-based two-center integral method" ON)
+option(ENABLE_GOOGLEBENCH "Enable GOOGLE-benchmark usage" OFF)
+option(ENABLE_RAPIDJSON "Enable rapid-json usage" OFF)
+option(ENABLE_CNPY "Enable cnpy usage" OFF)
+option(ENABLE_CUSOLVERMP "Enable cusolvermp" OFF)
 
 # enable json support
 if(ENABLE_RAPIDJSON)
@@ -106,11 +116,13 @@ You can install Git first and reinstall abacus.")
   endif()
 endif()
 
+# Serial version of ABACUS will not use ELPA
 if(NOT ENABLE_MPI)
   set(USE_ELPA OFF)
-  set(ENABLE_DEEPKS OFF)
+  set(ENABLE_MLALGO OFF)
 endif()
 
+# Different exe files of ABACUS
 if(ENABLE_LCAO AND ENABLE_MPI)
   set(ABACUS_BIN_NAME abacus)
 elseif(NOT ENABLE_LCAO AND ENABLE_MPI)
@@ -121,6 +133,7 @@ elseif(ENABLE_LCAO AND NOT ENABLE_MPI)
   set(ABACUS_BIN_NAME abacus_serial)
 endif()
 
+# Use DSP hardware
 if (USE_DSP)
   set(USE_ELPA OFF)
   set(ENABLE_LCAO OFF)
@@ -129,6 +142,10 @@ endif()
 
 if (USE_CUDA_ON_DCU)
   add_compile_definitions(__CUDA_ON_DCU)
+endif()
+
+if (USE_CUDA_MPI)
+  add_compile_definitions(__CUDA_MPI)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -151,12 +168,12 @@ set(ABACUS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/source)
 set(ABACUS_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 set(ABACUS_BIN_PATH ${CMAKE_CURRENT_BINARY_DIR}/${ABACUS_BIN_NAME})
 include_directories(${ABACUS_SOURCE_DIR})
-include_directories(${ABACUS_SOURCE_DIR}/module_base/module_container)
+include_directories(${ABACUS_SOURCE_DIR}/source_base/module_container)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(${ABACUS_BIN_NAME} source/main.cpp)
+add_executable(${ABACUS_BIN_NAME} source/source_main/main.cpp)
 if(ENABLE_COVERAGE)
   add_coverage(${ABACUS_BIN_NAME})
 endif()
@@ -175,6 +192,7 @@ find_program(CCACHE ccache)
 if(CCACHE)
   set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE} ${CMAKE_CXX_COMPILER_LAUNCHER})
   set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE} ${CMAKE_C_COMPILER_LAUNCHER})
+  set(CMAKE_CUDA_COMPILER_LAUNCHER ${CCACHE} ${CMAKE_CUDA_COMPILER_LAUNCHER})
 endif()
 
 # Choose build type from: Debug Release RelWithDebInfo MinSizeRel Select
@@ -200,7 +218,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES Intel)
   add_compile_options(-fp-model=strict)
   set(USE_ABACUS_LIBM OFF) # Force turn off USE_ABACUS_LIBM on Intel Compiler
   set(CMAKE_CXX_FLAGS
-      "${CMAKE_CXX_FLAGS} -Wno-write-strings -Wno-tautological-constant-compare"
+      "${CMAKE_CXX_FLAGS} -Wno-write-strings "
   )
 endif()
 
@@ -235,8 +253,11 @@ if(ENABLE_LCAO)
     add_compile_definitions(__PEXSI)
     set(CMAKE_CXX_STANDARD 14)
   endif()
+  if(OLD_GINT)
+    add_compile_definitions(__OLD_GINT)
+  endif()
 else()
-  set(ENABLE_DEEPKS OFF)
+  set(ENABLE_MLALGO OFF)
   set(ENABLE_LIBRI OFF)
 endif()
 
@@ -252,9 +273,26 @@ if(ENABLE_MPI)
   list(APPEND math_libs MPI::MPI_CXX)
 endif()
 
+
 if (USE_DSP)
-  target_link_libraries(${ABACUS_BIN_NAME} ${DIR_MTBLAS_LIBRARY})
   add_compile_definitions(__DSP)
+  target_link_libraries(${ABACUS_BIN_NAME} ${OMPI_LIBRARY1})
+  include_directories(${MTBLAS_FFT_DIR}/libmtblas/include)
+  include_directories(${MT_HOST_DIR}/include)
+  target_link_libraries(${ABACUS_BIN_NAME} ${MT_HOST_DIR}/hthreads/lib/libhthread_device.a)
+  target_link_libraries(${ABACUS_BIN_NAME} ${MT_HOST_DIR}/hthreads/lib/libhthread_host.a)
+endif()
+if (USE_SW)
+  add_compile_definitions(__SW)
+  set(SW ON)
+  include_directories(${SW_MATH}/include)
+  include_directories(${SW_FFT}/include)
+  
+  target_link_libraries(${ABACUS_BIN_NAME} ${SW_FFT}/lib/libfftw3.a)
+  target_link_libraries(${ABACUS_BIN_NAME} ${SW_MATH}/libswfft.a)
+  target_link_libraries(${ABACUS_BIN_NAME} ${SW_MATH}/libswscalapack.a)
+  target_link_libraries(${ABACUS_BIN_NAME} ${SW_MATH}/libswlapack.a)
+  target_link_libraries(${ABACUS_BIN_NAME} ${SW_MATH}/libswblas.a)
 endif()
 
 find_package(Threads REQUIRED)
@@ -326,7 +364,11 @@ if(USE_CUDA)
   # ${ABACUS_BIN_NAME} is added before CUDA is enabled
   set_property(TARGET ${ABACUS_BIN_NAME}
                PROPERTY CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES})
-  target_link_libraries(${ABACUS_BIN_NAME} cudart nvToolsExt)
+  if (CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.9)
+    target_link_libraries(${ABACUS_BIN_NAME} cudart)
+  else ()
+    target_link_libraries(${ABACUS_BIN_NAME} cudart nvToolsExt)
+  endif ()
   include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
   if(USE_CUDA)
     add_compile_definitions(__CUDA)
@@ -339,9 +381,19 @@ if(USE_CUDA)
     endif()
     if (ENABLE_CUSOLVERMP)
       add_compile_definitions(__CUSOLVERMP)
+      find_library(CAL_LIBRARY
+          NAMES cal
+          PATHS ${CAL_CUSOLVERMP_PATH}
+          NO_DEFAULT_PATH
+      )
+      find_library(CUSOLVERMP_LIBRARY
+          NAMES cusolverMp
+          PATHS ${CAL_CUSOLVERMP_PATH}
+          NO_DEFAULT_PATH
+      )
       target_link_libraries(${ABACUS_BIN_NAME}
-          cal
-          cusolverMp
+          ${CAL_LIBRARY}
+          ${CUSOLVERMP_LIBRARY}
       )
     endif()
   endif()
@@ -420,15 +472,16 @@ if(MKLROOT)
   if(CMAKE_CXX_COMPILER_ID MATCHES Intel)
     list(APPEND math_libs ifcore)
   endif()
+elseif(USE_SW)
+   list(APPEND math_libs gfortran)
+  # SW architecture can only use its own math library
 else()
   find_package(FFTW3 REQUIRED)
   find_package(Lapack REQUIRED)
   include_directories(${FFTW3_INCLUDE_DIRS})
   list(APPEND math_libs FFTW3::FFTW3 LAPACK::LAPACK BLAS::BLAS)
-
   find_package(ScaLAPACK REQUIRED)
   list(APPEND math_libs ScaLAPACK::ScaLAPACK)
-
   if(USE_OPENMP)
     list(APPEND math_libs FFTW3::FFTW3_OMP)
   endif()
@@ -450,8 +503,9 @@ if(ENABLE_FLOAT_FFTW)
   add_definitions(-D__ENABLE_FLOAT_FFTW)
 endif()
 
-if(ENABLE_DEEPKS)
-  target_link_libraries(${ABACUS_BIN_NAME} deepks)
+if(ENABLE_MLALGO)
+  target_link_libraries(${ABACUS_BIN_NAME} deepks) # deepks
+  target_link_libraries(${ABACUS_BIN_NAME} hamilt_mlkedf) # mlkedf
 
   find_path(libnpy_SOURCE_DIR npy.hpp HINTS ${libnpy_INCLUDE_DIR})
   if(NOT libnpy_SOURCE_DIR)
@@ -466,13 +520,14 @@ if(ENABLE_DEEPKS)
     include_directories(${libnpy_INCLUDE_DIR})
   endif()
   include_directories(${libnpy_SOURCE_DIR}/include)
-  add_compile_definitions(__DEEPKS)
+  
+  add_compile_definitions(__MLALGO)
 endif()
 
 # Torch uses outdated components to detect CUDA arch, causing failure on
 # latest CUDA kits. Set CMake variable TORCH_CUDA_ARCH_LIST in the form of
 # "major.minor" if required.
-if(ENABLE_DEEPKS OR DEFINED Torch_DIR)
+if(ENABLE_MLALGO OR DEFINED Torch_DIR)
   find_package(Torch REQUIRED)
   if(NOT Torch_VERSION VERSION_LESS "2.1.0")
     set_if_higher(CMAKE_CXX_STANDARD 17)
@@ -561,18 +616,7 @@ if(ENABLE_LIBCOMM)
   include_directories(${LIBCOMM_DIR}/include)
 endif()
 
-if(ENABLE_PAW)
-  if(LIBPAW_DIR)
-    add_subdirectory(${LIBPAW_DIR})
-  elseif(GIT_SUBMODULE)
-    git_submodule_update()
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/deps/libpaw_interface)
-  else()
-    message(FATAL_ERROR "Must provide LIBPAW_DIR for PAW related features.")
-  endif()
-  target_link_libraries(${ABACUS_BIN_NAME} paw)
-  add_compile_definitions(USE_PAW)
-endif()
+
 
 list(APPEND math_libs m)
 target_link_libraries(${ABACUS_BIN_NAME} ${math_libs})
@@ -707,9 +751,9 @@ target_link_libraries(
   hsolver
   elecstate
   hamilt_general
-  hamilt_pwdft
-  hamilt_ofdft
-  hamilt_stodft
+  module_pwdft
+  module_ofdft
+  module_stodft
   psi
   psi_initializer
   psi_overall_init

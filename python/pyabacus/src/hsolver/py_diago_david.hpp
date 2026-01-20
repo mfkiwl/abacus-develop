@@ -10,7 +10,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-#include "module_hsolver/diago_david.h"
+#include "source_hsolver/diago_david.h"
 
 namespace py = pybind11;
 
@@ -135,7 +135,7 @@ public:
             const int nrow, 
             const int nbands
         ) {
-            syncmem_op()(this->ctx, this->ctx, spsi_out, psi_in, static_cast<size_t>(nbands * nrow));
+            syncmem_op()(spsi_out, psi_in, static_cast<size_t>(nbands * nrow));
         };
 
         obj = std::make_unique<hsolver::DiagoDavid<std::complex<double>, base_device::DEVICE_CPU>>(

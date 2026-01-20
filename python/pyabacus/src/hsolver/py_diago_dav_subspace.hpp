@@ -10,7 +10,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-#include "module_hsolver/diago_dav_subspace.h"
+#include "source_hsolver/diago_dav_subspace.h"
 
 namespace py = pybind11;
 
@@ -108,7 +108,9 @@ public:
         bool need_subspace,
         std::vector<double>& diag_ethr,
         bool scf_type,
-        hsolver::diag_comm_info comm_info
+        hsolver::diag_comm_info comm_info,
+        int diag_subspace,
+        int nb2d
     ) {
         auto hpsi_func = [mm_op] (
             std::complex<double> *psi_in,
@@ -130,6 +132,11 @@ public:
             std::copy(hpsi_ptr, hpsi_ptr + nvec * ld_psi, hpsi_out);
         };
 
+        auto spsi_func = [this](const std::complex<double>* psi_in,
+                                std::complex<double>* spsi_out,
+                                const int ld_psi,
+                                const int nvec) { syncmem_op()(spsi_out, psi_in, static_cast<size_t>(ld_psi * nvec)); };
+
         obj = std::make_unique<hsolver::Diago_DavSubspace<std::complex<double>, base_device::DEVICE_CPU>>(
             precond_vec, 
             nband, 
@@ -138,10 +145,12 @@ public:
             tol, 
             max_iter, 
             need_subspace, 
-            comm_info
+            comm_info,
+            diag_subspace,
+            nb2d
         );
 
-        return obj->diag(hpsi_func, psi, nbasis, eigenvalue, diag_ethr, scf_type);
+        return obj->diag(hpsi_func, spsi_func, psi, nbasis, eigenvalue, diag_ethr, scf_type);
     }
 
 private:
@@ -152,6 +161,10 @@ private:
     int nband;
 
     std::unique_ptr<hsolver::Diago_DavSubspace<std::complex<double>, base_device::DEVICE_CPU>> obj;
+
+    base_device::DEVICE_CPU* ctx = {};
+    using syncmem_op = base_device::memory::
+        synchronize_memory_op<std::complex<double>, base_device::DEVICE_CPU, base_device::DEVICE_CPU>;
 };
 
 } // namespace py_hsolver

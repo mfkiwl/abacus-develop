@@ -14,8 +14,8 @@
 #include <ATen/core/tensor_map.h>
 #include <ATen/core/tensor_types.h>
 
-#include "module_hsolver/diago_cg.h"
-#include "module_base/module_device/memory_op.h"
+#include "source_hsolver/diago_cg.h"
+#include "source_base/module_device/memory_op.h"
 
 namespace py = pybind11;
 
@@ -153,8 +153,6 @@ public:
             const int nrow   = ndim == 1 ? psi_in.NumElements() : psi_in.shape().dim_size(1);
             const int nbands = ndim == 1 ? 1 : psi_in.shape().dim_size(0);
             syncmem_z2z_h2h_op()(
-                this->ctx,
-                this->ctx,
                 spsi_out.data<std::complex<double>>(), 
                 psi_in.data<std::complex<double>>(), 
                 static_cast<size_t>(nrow * nbands)

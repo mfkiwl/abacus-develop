@@ -2,9 +2,9 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "module_base/vector3.h"
-#include "module_basis/module_nao/radial_collection.h"
-#include "module_basis/module_nao/two_center_integrator.h"
+#include "source_base/vector3.h"
+#include "source_basis/module_nao/radial_collection.h"
+#include "source_basis/module_nao/two_center_integrator.h"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -152,12 +152,9 @@ void bind_m_nao(py::module& m)
                 double* cvR = static_cast<double*>(pvR_info.ptr);
                 ModuleBase::Vector3<double> vR(cvR[0], cvR[1], cvR[2]);
                 double out[1] = {0.0};
-                double* grad_out = nullptr;
-                if (cal_grad)
-                {
-                    grad_out = new double[3];
-                }
-                self.calculate(itype1, l1, izeta1, m1, itype2, l2, izeta2, m2, vR, out, grad_out);
+                double grad_out[3] = {0.0, 0.0, 0.0};
+                double* grad_ptr = cal_grad ? grad_out : nullptr;
+                self.calculate(itype1, l1, izeta1, m1, itype2, l2, izeta2, m2, vR, out, grad_ptr);
                 py::array_t<double> out_array(1, out);
                 if (cal_grad)
                 {
